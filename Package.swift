@@ -152,6 +152,18 @@ let package = Package(
                 .enableExperimentalFeature("StrictConcurrency")
             ]
         ),
+        .testTarget(
+            name: "MLXVLMTests",
+            dependencies: [
+                .product(name: "MLX", package: "mlx-swift"),
+                "MLXVLM",
+                "MLXLMCommon",
+            ],
+            path: "Tests/MLXVLMTests",
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency")
+            ]
+        ),
     ]
 )
 
