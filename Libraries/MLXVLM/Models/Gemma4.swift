@@ -2395,6 +2395,7 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
         }
 
         // Scatter audio features
+        print("[Gemma4][getInputEmbeddings] audioFeatures=\(audioFeatures?.shape.description ?? "nil") audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
         if let audioFeatures, let audioTower, let embedAudio {
             let melMask = audioMask ?? MLXArray.zeros(
                 [audioFeatures.dim(0), audioFeatures.dim(1)], type: Bool.self)
@@ -2447,6 +2448,8 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
         let convertedCache = cache.map { $0 }
         let hasImage = input.image?.pixels != nil
         let hasAudio = input.audio?.features != nil
+
+        print("[Gemma4][prepare] hasImage=\(hasImage) hasAudio=\(hasAudio) audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
 
         if hasImage || hasAudio {
             let (inputsEmbeds, perLayerInputs) = try getInputEmbeddings(
