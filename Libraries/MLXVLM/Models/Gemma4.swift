@@ -1927,11 +1927,13 @@ private final class Gemma4AudioAttention: Module {
     @ModuleInfo(key: "post") var post: Gemma4AudioClippableLinear
 
     // Relative position embedding (inline)
+    // Note: relPosInvTimescales is NOT a model parameter — it's a computed constant.
+    // Store as [Float] to avoid MLX Module treating it as a loadable weight.
     private let relPosNumHeads: Int
     private let relPosHeadDim: Int
     private let relPosMaxBackward: Int
     private let relPosMaxForward: Int
-    private let relPosInvTimescales: MLXArray
+    private let relPosInvTimescalesData: [Float]
 
     init(config: Gemma4AudioConfiguration) {
         self.numHeads = config.numAttentionHeads
@@ -1974,9 +1976,9 @@ private final class Gemma4AudioAttention: Module {
         let numTimescales = config.hiddenSize / 2
         let logTimescaleIncrement =
             Foundation.log(maxTimescale / minTimescale) / Float(max(numTimescales - 1, 1))
-        self.relPosInvTimescales =
-            MLXArray(minTimescale)
-            * MLX.exp(MLXArray(0 ..< numTimescales).asType(.float32) * (-logTimescaleIncrement))
+        self.relPosInvTimescalesData = (0..<numTimescales).map { i in
+            minTimescale * Foundation.exp(Float(i) * (-logTimescaleIncrement))
+        }
 
         super.init()
     }
@@ -2026,7 +2028,7 @@ private final class Gemma4AudioAttention: Module {
     private func relPosTimingSignal(_ position: MLXArray, dtype: DType) -> MLXArray {
         let posFloat = position.asType(.float32)
         let pos = expandedDimensions(posFloat, axis: -1)
-        let invTS = relPosInvTimescales.reshaped(1, 1, -1)
+        let invTS = MLXArray(relPosInvTimescalesData).reshaped(1, 1, -1)
         let scaledTime = pos * invTS
         let signal = concatenated([sin(scaledTime), cos(scaledTime)], axis: -1)
         return signal.asType(dtype)
