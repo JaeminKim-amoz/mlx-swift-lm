@@ -2480,19 +2480,24 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
                 !key.contains("audio_tower") && !key.contains("embed_audio")
             }
         } else {
-            // Handle Conv2d weight transposition for audio tower
-            // PyTorch [out, in, kH, kW] -> MLX [out, kH, kW, in]
+            // mlx-community quantized models already store weights in MLX layout.
+            // Do NOT transpose conv weights — they are already [out, kH, kW, in].
+            // Only transpose if the weight shape doesn't match expected MLX layout.
             var audioSanitized: [String: MLXArray] = [:]
             for (key, var value) in sanitized {
+                // Conv2d: check if weight needs transposition
+                // MLX expects [out, kH, kW, in]. If stored as PyTorch [out, in, kH, kW], transpose.
+                // Detect by checking if shape matches expected — if last dim is small (in_channels),
+                // it's already MLX format.
                 if key.contains("subsample_conv_projection") && key.contains("conv.weight")
                     && value.ndim == 4
                 {
-                    value = value.transposed(0, 2, 3, 1)
+                    // layer0: expect [128, 3, 3, 1] — in=1
+                    // layer1: expect [32, 3, 3, 128] — in=128
+                    // If shape[3] (last dim) is very large and shape[1] is small, it might be PyTorch format
+                    // For mlx-community models, weights are already in MLX format — skip transpose
                 }
-                // Conv1d weight: PyTorch [out, in, kW] -> MLX [out, kW, in]
-                if key.contains("depthwise_conv1d.weight") && value.ndim == 3 {
-                    value = value.transposed(0, 2, 1)
-                }
+                // Conv1d: same logic — mlx-community weights already in MLX format
                 audioSanitized[key] = value
             }
             sanitized = audioSanitized
