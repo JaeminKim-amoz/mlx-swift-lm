@@ -2724,7 +2724,9 @@ public struct Gemma4ProcessorConfiguration: Codable, Sendable {
         imageTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.imageTokenId) ?? 258_880
         boiTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.boiTokenId) ?? 255_999
         eoiTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.eoiTokenId) ?? 258_882
-        audioTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.audioTokenId)
+        // audio_token_id is in config.json but NOT in processor_config.json.
+        // Default to 258881 (<|audio|>) which is the standard Gemma4 audio token.
+        audioTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.audioTokenId) ?? 258_881
     }
 
     public var imageMeanTuple: (CGFloat, CGFloat, CGFloat) {
