@@ -2395,7 +2395,7 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
         }
 
         // Scatter audio features
-        print("[Gemma4][getInputEmbeddings] audioFeatures=\(audioFeatures?.shape.description ?? "nil") audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
+        NSLog("[Gemma4][getInputEmbeddings] audioFeatures=\(audioFeatures?.shape.description ?? "nil") audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
         if let audioFeatures, let audioTower, let embedAudio {
             let melMask = audioMask ?? MLXArray.zeros(
                 [audioFeatures.dim(0), audioFeatures.dim(1)], type: Bool.self)
@@ -2449,7 +2449,7 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
         let hasImage = input.image?.pixels != nil
         let hasAudio = input.audio?.features != nil
 
-        print("[Gemma4][prepare] hasImage=\(hasImage) hasAudio=\(hasAudio) audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
+        NSLog("[Gemma4][prepare] hasImage=\(hasImage) hasAudio=\(hasAudio) audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
 
         if hasImage || hasAudio {
             let (inputsEmbeds, perLayerInputs) = try getInputEmbeddings(
@@ -2597,7 +2597,7 @@ public struct Gemma4Processor: UserInputProcessor {
                 // Fallback: prepend to prompt (after BOS)
                 promptTokens.insert(audioTokenId, at: min(1, promptTokens.count))
             }
-            print("[Gemma4][prepare] injected audio token \(audioTokenId) into prompt, total tokens: \(promptTokens.count)")
+            NSLog("[Gemma4][prepare] injected audio token \(audioTokenId) into prompt, total tokens: \(promptTokens.count)")
         }
 
         var processedImage: LMInput.ProcessedImage?
