@@ -2703,9 +2703,13 @@ public struct Gemma4Processor: UserInputProcessor {
                 promptTokens = expandedTokens
             }
 
+            // Invert mask: mel extractor outputs 1.0=valid, 0.0=padding
+            // But SSCPConvBlock expects True=padding/invalid (positions to zero out)
+            let invertedMask = melMask .== 0
+
             processedAudio = LMInput.ProcessedAudio(
                 features: melFeatures.expandedDimensions(axis: 0),  // [1, frames, melBins]
-                mask: melMask.expandedDimensions(axis: 0)           // [1, frames]
+                mask: invertedMask.expandedDimensions(axis: 0)       // [1, frames] True=padding
             )
         }
 
