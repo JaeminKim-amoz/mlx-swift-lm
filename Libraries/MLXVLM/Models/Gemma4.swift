@@ -2574,7 +2574,20 @@ public struct Gemma4Processor: UserInputProcessor {
     }
 
     public func prepare(input: UserInput) async throws -> LMInput {
-        let messages = Qwen2VLMessageGenerator().generate(from: input)
+        var messages = Qwen2VLMessageGenerator().generate(from: input)
+
+        // If audio inputs present, inject <|audio|> token into the user message
+        // Gemma4 expects: <|audio|> before the text content in chat template
+        if !input.audios.isEmpty, let audioTokenId = config.audioTokenId {
+            // Find the audio token string from tokenizer
+            let audioTokenStr = tokenizer.decode(tokens: [audioTokenId])
+            // Prepend audio token to the first user message's content
+            if var firstMsg = messages.first, var content = firstMsg["content"] as? String {
+                content = audioTokenStr + content
+                firstMsg["content"] = content
+                messages[0] = firstMsg
+            }
+        }
 
         var promptTokens = try tokenizer.applyChatTemplate(
             messages: messages, tools: input.tools,
