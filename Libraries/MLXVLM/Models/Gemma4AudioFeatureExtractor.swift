@@ -15,7 +15,7 @@ import MLX
 // MARK: - Mel Filter Bank
 
 /// Create a mel filter bank matrix [numFrequencyBins, numMelFilters] using HTK scale.
-func gemma4MelFilterBank(
+public func gemma4MelFilterBank(
     numFrequencyBins: Int,
     numMelFilters: Int,
     minFrequency: Float,
