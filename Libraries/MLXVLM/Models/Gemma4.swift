@@ -2648,9 +2648,12 @@ public struct Gemma4Processor: UserInputProcessor {
             let (melFeatures, melMask) = extractor.extract(audio: audioSamples)
             eval(melFeatures, melMask)
 
-            // Calculate number of audio tokens: ceil(duration_ms / 40ms), cap at 750
-            let durationMs = Float(audioSamples.count) / 16.0  // 16kHz → ms
-            let numAudioTokens = min(Int(ceil(durationMs / 40.0)), 750)
+            // Calculate number of audio tokens based on actual encoder subsampling.
+            // SubSampleConvProjection has 2 Conv2d layers with stride=2, kernel=3, padding=1.
+            // Each layer: output_frames = (input_frames + 2*1 - 3) / 2 + 1 = (input_frames - 1) / 2 + 1
+            let melFrames = melFeatures.dim(0)
+            let afterConv0 = (melFrames + 2 - 3) / 2 + 1
+            let numAudioTokens = min((afterConv0 + 2 - 3) / 2 + 1, 750)
 
             // Expand audio placeholder tokens in prompt
             let audioPlaceholderCount = promptTokens.filter { $0 == audioTokenId }.count
