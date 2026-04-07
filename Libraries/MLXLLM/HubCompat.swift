@@ -4,11 +4,12 @@
 
 import Foundation
 import Hub
+import MLXLMCommon
 import Tokenizers
 
 // MARK: - HuggingFace Downloader bridge
 
-private struct HubDownloader: Downloader, @unchecked Sendable {
+private struct HubDownloader: MLXLMCommon.Downloader, @unchecked Sendable {
     let hub: HubApi
 
     func download(
@@ -29,16 +30,16 @@ private struct HubDownloader: Downloader, @unchecked Sendable {
 
 // MARK: - HuggingFace TokenizerLoader bridge
 
-private struct HubTokenizerLoader: TokenizerLoader, @unchecked Sendable {
+private struct HubTokenizerLoader: MLXLMCommon.TokenizerLoader, @unchecked Sendable {
     let hub: HubApi
 
-    func load(from directory: URL) async throws -> any Tokenizer {
+    func load(from directory: URL) async throws -> any MLXLMCommon.Tokenizer {
         let upstream = try await AutoTokenizer.from(modelFolder: directory, hubApi: hub)
         return TokenizerBridge(upstream)
     }
 }
 
-private struct TokenizerBridge: Tokenizer, @unchecked Sendable {
+private struct TokenizerBridge: MLXLMCommon.Tokenizer, @unchecked Sendable {
     private let upstream: any Tokenizers.Tokenizer
 
     init(_ upstream: any Tokenizers.Tokenizer) {
@@ -74,7 +75,7 @@ private struct TokenizerBridge: Tokenizer, @unchecked Sendable {
             return try upstream.applyChatTemplate(
                 messages: messages, tools: tools, additionalContext: additionalContext)
         } catch Tokenizers.TokenizerError.missingChatTemplate {
-            throw TokenizerError.missingChatTemplate
+            throw MLXLMCommon.TokenizerError.missingChatTemplate
         }
     }
 }
@@ -88,8 +89,8 @@ public func loadModelContainer(
     id: String,
     revision: String = "main",
     progressHandler: @Sendable @escaping (Progress) -> Void = { _ in }
-) async throws -> ModelContainer {
-    try await loadModelContainer(
+) async throws -> MLXLMCommon.ModelContainer {
+    try await MLXLMCommon.loadModelContainer(
         from: HubDownloader(hub: hub),
         using: HubTokenizerLoader(hub: hub),
         id: id,
