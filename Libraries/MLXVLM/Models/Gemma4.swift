@@ -2442,9 +2442,16 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
         -> PrepareResult
     {
         let convertedCache = cache.map { $0 }
-        if let imagePixels = input.image?.pixels {
+        let hasImage = input.image?.pixels != nil
+        let hasAudio = input.audio?.features != nil
+
+        if hasImage || hasAudio {
             let (inputsEmbeds, perLayerInputs) = try getInputEmbeddings(
-                inputIds: input.text.tokens, pixelValues: imagePixels)
+                inputIds: input.text.tokens,
+                pixelValues: input.image?.pixels,
+                audioFeatures: input.audio?.features,
+                audioMask: input.audio?.mask
+            )
             let result = languageModel(
                 nil,
                 cache: convertedCache,
@@ -2607,9 +2614,48 @@ public struct Gemma4Processor: UserInputProcessor {
             )
         }
 
+        // Audio processing
+        var processedAudio: LMInput.ProcessedAudio?
+        if !input.audios.isEmpty, let audioTokenId = config.audioTokenId {
+            let extractor = Gemma4AudioFeatureExtractor()
+            // Process first audio (single audio input for now)
+            let audioSamples = input.audios[0]
+            let (melFeatures, melMask) = extractor.extract(audio: audioSamples)
+            eval(melFeatures, melMask)
+
+            // Calculate number of audio tokens: ceil(duration_ms / 40ms), cap at 750
+            let durationMs = Float(audioSamples.count) / 16.0  // 16kHz → ms
+            let numAudioTokens = min(Int(ceil(durationMs / 40.0)), 750)
+
+            // Expand audio placeholder tokens in prompt
+            let audioPlaceholderCount = promptTokens.filter { $0 == audioTokenId }.count
+            if audioPlaceholderCount > 0 {
+                var expandedTokens: [Int] = []
+                for token in promptTokens {
+                    if token == audioTokenId {
+                        // Replace single placeholder with numAudioTokens copies
+                        expandedTokens.append(
+                            contentsOf: Array(repeating: audioTokenId, count: numAudioTokens))
+                    } else {
+                        expandedTokens.append(token)
+                    }
+                }
+                promptTokens = expandedTokens
+            }
+
+            processedAudio = LMInput.ProcessedAudio(
+                features: melFeatures.expandedDimensions(axis: 0),  // [1, frames, melBins]
+                mask: melMask.expandedDimensions(axis: 0)           // [1, frames]
+            )
+        }
+
         let promptArray = MLXArray(promptTokens).expandedDimensions(axis: 0)
         let mask = ones(like: promptArray).asType(.int8)
-        return LMInput(text: .init(tokens: promptArray, mask: mask), image: processedImage)
+        return LMInput(
+            text: .init(tokens: promptArray, mask: mask),
+            image: processedImage,
+            audio: processedAudio
+        )
     }
 }
 
@@ -2624,6 +2670,7 @@ public struct Gemma4ProcessorConfiguration: Codable, Sendable {
     public let imageTokenId: Int
     public let boiTokenId: Int
     public let eoiTokenId: Int?
+    public let audioTokenId: Int?
 
     enum CodingKeys: String, CodingKey {
         case processorClass = "processor_class"
@@ -2635,6 +2682,7 @@ public struct Gemma4ProcessorConfiguration: Codable, Sendable {
         case imageTokenId = "image_token_id"
         case boiTokenId = "boi_token_id"
         case eoiTokenId = "eoi_token_id"
+        case audioTokenId = "audio_token_id"
     }
 
     public init(from decoder: any Swift.Decoder) throws {
@@ -2651,6 +2699,7 @@ public struct Gemma4ProcessorConfiguration: Codable, Sendable {
         imageTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.imageTokenId) ?? 258_880
         boiTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.boiTokenId) ?? 255_999
         eoiTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.eoiTokenId) ?? 258_882
+        audioTokenId = try c.decodeIfPresent(Int.self, forKey: CodingKeys.audioTokenId)
     }
 
     public var imageMeanTuple: (CGFloat, CGFloat, CGFloat) {
