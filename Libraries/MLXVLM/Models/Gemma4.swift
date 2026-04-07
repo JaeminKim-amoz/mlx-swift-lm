@@ -2398,25 +2398,20 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
         if let audioFeatures {
             let afMean = audioFeatures.mean().item(Float.self)
             let afStd = MLX.sqrt(audioFeatures.variance()).item(Float.self)
-            NSLog("[Gemma4][audio] input mel features: shape=\(audioFeatures.shape) mean=\(afMean) std=\(afStd)")
-        }
-        NSLog("[Gemma4][audio] audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
-        if let audioFeatures, let audioTower, let embedAudio {
+                    }
+                if let audioFeatures, let audioTower, let embedAudio {
             let melMask = audioMask ?? MLXArray.zeros(
                 [audioFeatures.dim(0), audioFeatures.dim(1)], type: Bool.self)
             let (audioEncodings, _) = audioTower(audioFeatures, audioMelMask: melMask)
             eval(audioEncodings)
             let encMean = audioEncodings.mean().item(Float.self)
             let encStd = MLX.sqrt(audioEncodings.variance()).item(Float.self)
-            NSLog("[Gemma4][audio] encoder output: shape=\(audioEncodings.shape) mean=\(encMean) std=\(encStd)")
-            NSLog("[Gemma4][audio] encoder first5: \(audioEncodings[0, 0, 0..<min(5, audioEncodings.dim(2))].asArray(Float.self))")
-            
+                                    
             var projected = embedAudio(audioEncodings)
             projected = projected.asType(inputsEmbeds.dtype)
             eval(projected)
             let projMean = projected.mean().item(Float.self)
-            NSLog("[Gemma4][audio] projected: shape=\(projected.shape) mean=\(projMean)")
-
+            
             if let audioTokenId = config.audioTokenId {
                 let audioTokenMask = inputIds .== audioTokenId
                 var audioMaskExpanded = expandedDimensions(audioTokenMask, axis: -1)
@@ -2429,8 +2424,9 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
                 let projStd = MLX.sqrt(projected.variance()).item(Float.self)
                 
                 // Write to file since NSLog doesn't show in test runner
-                let debugMsg = "SCATTER: audioTokens=\(audioCount) projShape=\(projected.shape) projMean=\(projMean) projStd=\(projStd) embedsBefore=\(beforeMean)\n"
-                try? debugMsg.write(toFile: "/tmp/gemma4_scatter_debug.txt", atomically: true, encoding: .utf8)
+                // debug removed
+                // let debugMsg = "SCATTER: audioTokens=\(audioCount) projShape=\(projected.shape) projMean=\(projMean) projStd=\(projStd) embedsBefore=\(beforeMean)\n"
+                
                 
                 inputsEmbeds = gemma4MaskedScatter(
                     inputTensor: inputsEmbeds,
@@ -2439,8 +2435,8 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
                 )
                 eval(inputsEmbeds)
                 let afterMean = inputsEmbeds.mean().item(Float.self)
-                let debugMsg2 = debugMsg + "AFTER: embedsAfter=\(afterMean) diff=\(afterMean - beforeMean)\n"
-                try? debugMsg2.write(toFile: "/tmp/gemma4_scatter_debug.txt", atomically: true, encoding: .utf8)
+                // let debugMsg2 = debugMsg + "AFTER: embedsAfter=\(afterMean) diff=\(afterMean - beforeMean)\n"
+                
             }
         }
 
@@ -2478,8 +2474,7 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
         let hasImage = input.image?.pixels != nil
         let hasAudio = input.audio?.features != nil
 
-        NSLog("[Gemma4][prepare] hasImage=\(hasImage) hasAudio=\(hasAudio) audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
-
+        
         if hasImage || hasAudio {
             let (inputsEmbeds, perLayerInputs) = try getInputEmbeddings(
                 inputIds: input.text.tokens,
@@ -2626,8 +2621,7 @@ public struct Gemma4Processor: UserInputProcessor {
                 // Fallback: prepend to prompt (after BOS)
                 promptTokens.insert(audioTokenId, at: min(1, promptTokens.count))
             }
-            NSLog("[Gemma4][prepare] injected audio token \(audioTokenId) into prompt, total tokens: \(promptTokens.count)")
-        }
+                    }
 
         var processedImage: LMInput.ProcessedImage?
         if !input.images.isEmpty {
