@@ -2395,23 +2395,41 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
         }
 
         // Scatter audio features
-        NSLog("[Gemma4][getInputEmbeddings] audioFeatures=\(audioFeatures?.shape.description ?? "nil") audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
+        if let audioFeatures {
+            let afMean = audioFeatures.mean().item(Float.self)
+            let afStd = MLX.sqrt(audioFeatures.variance()).item(Float.self)
+            NSLog("[Gemma4][audio] input mel features: shape=\(audioFeatures.shape) mean=\(afMean) std=\(afStd)")
+        }
+        NSLog("[Gemma4][audio] audioTower=\(audioTower != nil) embedAudio=\(embedAudio != nil)")
         if let audioFeatures, let audioTower, let embedAudio {
             let melMask = audioMask ?? MLXArray.zeros(
                 [audioFeatures.dim(0), audioFeatures.dim(1)], type: Bool.self)
             let (audioEncodings, _) = audioTower(audioFeatures, audioMelMask: melMask)
+            eval(audioEncodings)
+            let encMean = audioEncodings.mean().item(Float.self)
+            let encStd = MLX.sqrt(audioEncodings.variance()).item(Float.self)
+            NSLog("[Gemma4][audio] encoder output: shape=\(audioEncodings.shape) mean=\(encMean) std=\(encStd)")
+            NSLog("[Gemma4][audio] encoder first5: \(audioEncodings[0, 0, 0..<min(5, audioEncodings.dim(2))].asArray(Float.self))")
+            
             var projected = embedAudio(audioEncodings)
             projected = projected.asType(inputsEmbeds.dtype)
+            eval(projected)
+            let projMean = projected.mean().item(Float.self)
+            NSLog("[Gemma4][audio] projected: shape=\(projected.shape) mean=\(projMean)")
 
             if let audioTokenId = config.audioTokenId {
                 let audioTokenMask = inputIds .== audioTokenId
                 var audioMaskExpanded = expandedDimensions(audioTokenMask, axis: -1)
                 audioMaskExpanded = broadcast(audioMaskExpanded, to: inputsEmbeds.shape)
+                let audioCount = audioTokenMask.sum().item(Int.self)
+                NSLog("[Gemma4][audio] scatter: audioTokens=\(audioCount) projected=\(projected.shape) embeds=\(inputsEmbeds.shape)")
                 inputsEmbeds = gemma4MaskedScatter(
                     inputTensor: inputsEmbeds,
                     mask: audioMaskExpanded,
                     source: projected
                 )
+                eval(inputsEmbeds)
+                NSLog("[Gemma4][audio] scatter done, embeds mean=\(inputsEmbeds.mean().item(Float.self))")
             }
         }
 
