@@ -233,15 +233,18 @@ public struct Gemma4AudioFeatureExtractor: Sendable {
             vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, FFTDirection(kFFTDirection_Forward))
 
             // Extract magnitudes
+            // vDSP_fft_zrip output is scaled by 2x compared to standard DFT.
+            // Divide by 2 to match numpy.fft.rfft normalization.
+            let scale: Float = 0.5
             // DC component
-            allMagnitudes[f * (halfFFT + 1)] = abs(splitComplex.realp[0])
+            allMagnitudes[f * (halfFFT + 1)] = abs(splitComplex.realp[0]) * scale
             // Nyquist
-            allMagnitudes[f * (halfFFT + 1) + halfFFT] = abs(splitComplex.imagp[0])
+            allMagnitudes[f * (halfFFT + 1) + halfFFT] = abs(splitComplex.imagp[0]) * scale
             // Other bins
             for i in 1..<halfFFT {
                 let re = splitComplex.realp[i]
                 let im = splitComplex.imagp[i]
-                allMagnitudes[f * (halfFFT + 1) + i] = sqrt(re * re + im * im)
+                allMagnitudes[f * (halfFFT + 1) + i] = sqrt(re * re + im * im) * scale
             }
         }
 
