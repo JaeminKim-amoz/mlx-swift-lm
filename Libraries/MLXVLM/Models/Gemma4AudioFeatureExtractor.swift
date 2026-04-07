@@ -66,7 +66,7 @@ public func gemma4MelFilterBank(
 // MARK: - Feature Extractor
 
 /// Gemma4 audio feature extractor — converts raw waveform to log-mel spectrogram.
-public struct Gemma4AudioFeatureExtractor: Sendable {
+public struct Gemma4AudioFeatureExtractor: @unchecked Sendable {
     public let featureSize: Int
     public let samplingRate: Int
     public let frameLength: Int
