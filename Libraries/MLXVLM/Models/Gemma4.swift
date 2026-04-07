@@ -2574,24 +2574,28 @@ public struct Gemma4Processor: UserInputProcessor {
     }
 
     public func prepare(input: UserInput) async throws -> LMInput {
-        var messages = Qwen2VLMessageGenerator().generate(from: input)
-
-        // If audio inputs present, inject <|audio|> token into the user message
-        // Gemma4 expects: <|audio|> before the text content in chat template
-        if !input.audios.isEmpty, let audioTokenId = config.audioTokenId {
-            // Find the audio token string from tokenizer
-            let audioTokenStr = tokenizer.decode(tokens: [audioTokenId])
-            // Prepend audio token to the first user message's content
-            if var firstMsg = messages.first, var content = firstMsg["content"] as? String {
-                content = audioTokenStr + content
-                firstMsg["content"] = content
-                messages[0] = firstMsg
-            }
-        }
+        let messages = Qwen2VLMessageGenerator().generate(from: input)
 
         var promptTokens = try tokenizer.applyChatTemplate(
             messages: messages, tools: input.tools,
             additionalContext: input.additionalContext)
+
+        // If audio inputs present, inject audio token into prompt tokens
+        // Gemma4 expects <|audio|> (token ID from config) before the user's text
+        if !input.audios.isEmpty, let audioTokenId = config.audioTokenId {
+            // Find the user content start (after "user\n" in the token sequence)
+            // Insert audio token placeholder right after the turn/user header
+            // Strategy: insert after the last occurrence of the newline following "user"
+            if let userTurnIdx = promptTokens.lastIndex(where: { $0 == 108 }) {
+                // 108 is typically newline in Gemma tokenizer
+                // Insert audio token right after it
+                promptTokens.insert(audioTokenId, at: userTurnIdx + 1)
+            } else {
+                // Fallback: prepend to prompt (after BOS)
+                promptTokens.insert(audioTokenId, at: min(1, promptTokens.count))
+            }
+            print("[Gemma4][prepare] injected audio token \(audioTokenId) into prompt, total tokens: \(promptTokens.count)")
+        }
 
         var processedImage: LMInput.ProcessedImage?
         if !input.images.isEmpty {
