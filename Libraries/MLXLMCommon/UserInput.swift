@@ -177,6 +177,9 @@ public struct UserInput {
     /// collect the videos from the chat messages, otherwise these are the stored videos with the ``UserInput``.
     public var videos = [Video]()
 
+    /// Audio inputs as raw PCM float arrays (16kHz mono).
+    public var audios = [[Float]]()
+
     public var tools: [ToolSpec]?
 
     /// Additional values provided for the chat template rendering context

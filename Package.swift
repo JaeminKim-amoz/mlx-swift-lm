@@ -146,6 +146,18 @@ let package = Package(
             ],
             path: "Libraries/MLXHuggingFace"
         ),
+        .testTarget(
+            name: "MLXVLMTests",
+            dependencies: [
+                .product(name: "MLX", package: "mlx-swift"),
+                "MLXVLM",
+                "MLXLMCommon",
+            ],
+            path: "Tests/MLXVLMTests",
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency")
+            ]
+        ),
     ]
 )
 
