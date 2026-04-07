@@ -2422,14 +2422,25 @@ public final class Gemma4: Module, VLMModel, KVCacheDimensionProvider {
                 var audioMaskExpanded = expandedDimensions(audioTokenMask, axis: -1)
                 audioMaskExpanded = broadcast(audioMaskExpanded, to: inputsEmbeds.shape)
                 let audioCount = audioTokenMask.sum().item(Int.self)
-                NSLog("[Gemma4][audio] scatter: audioTokens=\(audioCount) projected=\(projected.shape) embeds=\(inputsEmbeds.shape)")
+                
+                // Debug: dump values before and after scatter
+                let beforeMean = inputsEmbeds.mean().item(Float.self)
+                let projMean = projected.mean().item(Float.self)
+                let projStd = MLX.sqrt(projected.variance()).item(Float.self)
+                
+                // Write to file since NSLog doesn't show in test runner
+                let debugMsg = "SCATTER: audioTokens=\(audioCount) projShape=\(projected.shape) projMean=\(projMean) projStd=\(projStd) embedsBefore=\(beforeMean)\n"
+                try? debugMsg.write(toFile: "/tmp/gemma4_scatter_debug.txt", atomically: true, encoding: .utf8)
+                
                 inputsEmbeds = gemma4MaskedScatter(
                     inputTensor: inputsEmbeds,
                     mask: audioMaskExpanded,
                     source: projected
                 )
                 eval(inputsEmbeds)
-                NSLog("[Gemma4][audio] scatter done, embeds mean=\(inputsEmbeds.mean().item(Float.self))")
+                let afterMean = inputsEmbeds.mean().item(Float.self)
+                let debugMsg2 = debugMsg + "AFTER: embedsAfter=\(afterMean) diff=\(afterMean - beforeMean)\n"
+                try? debugMsg2.write(toFile: "/tmp/gemma4_scatter_debug.txt", atomically: true, encoding: .utf8)
             }
         }
 
