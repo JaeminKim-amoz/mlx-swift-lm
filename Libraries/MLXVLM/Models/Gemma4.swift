@@ -2146,13 +2146,14 @@ private final class Gemma4ConformerLightConv1d: Module {
         self._linearStart.wrappedValue = Gemma4AudioClippableLinear(
             inFeatures: config.hiddenSize, outFeatures: config.hiddenSize * 2,
             useClipping: config.useClippedLinears)
-        // Depthwise conv1d: groups = hidden_size for depthwise
+        // Depthwise conv1d: groups = hidden_size so weight shape is [out, kernel, 1]
         self._depthwiseConv1d.wrappedValue = Conv1d(
             inputChannels: config.hiddenSize,
             outputChannels: config.hiddenSize,
             kernelSize: config.convKernelSize,
             stride: 1,
             padding: 0,
+            groups: config.hiddenSize,
             bias: false
         )
         self._convNorm.wrappedValue = Gemma4AudioRMSNorm(
